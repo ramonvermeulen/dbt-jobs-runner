@@ -122,7 +122,7 @@ class DbtCloudRunner:
 
         return run_job_resp["data"]["id"]
 
-    def cancel_job(self, run_id: int) -> bool:
+    def cancel_run(self, run_id: int) -> bool:
         """
         Cancels a dbt cloud job run using the dbt cloud API
 
