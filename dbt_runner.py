@@ -36,14 +36,14 @@ class DbtCloudRunner:
         }
         self.base_url = f"{self.api_base}/api/v2/accounts/{self.account_id}"
 
-    def _get_artifact_url(self, *, artifact_name: str, job_id: int):
+    def _get_artifact_url(self, *, artifact_name: str, run_id: int):
         """
         Helper method to get the artifact API url
 
         :param artifact_name: file name of the artifact
         :return: artifact API url
         """
-        return f"{self.base_url}/jobs/{job_id}/artifacts/{artifact_name}"
+        return self._get_run_url(run_id=run_id) + f"artifacts/{artifact_name}"
 
     def _get_job_url(self, *, job_id: int) -> str:
         """
@@ -122,6 +122,25 @@ class DbtCloudRunner:
 
         return run_job_resp["data"]["id"]
 
+    def cancel_job(self, run_id: int) -> bool:
+        """
+        Cancels a dbt cloud job run using the dbt cloud API
+
+        :param run_id: Identifier of the run to cancel
+        :return: boolean indicating if the job was successfully cancelled
+        """
+        req_run_url = f"{self._get_run_url(run_id=run_id)}/cancel/"
+
+        request = Request(
+            method="POST", headers=self.req_headers, url=req_run_url
+        )
+
+        with urlopen(request) as req:
+            response = req.read().decode("utf-8")
+            cancel_job_resp = json.loads(response)
+
+        return cancel_job_resp["status"]["is_success"]
+
     def get_run_status(
         self,
         *,
@@ -172,17 +191,17 @@ class DbtCloudRunner:
     def get_artifact(
         self,
         artifact_name: str,
-        job_id: int,
+        run_id: int,
     ) -> str:
         """
         Retrieves the contents of a specific artifact from dbt cloud using the dbt cloud API
 
         :param artifact_name: file name of the artifact to retrieve
-        :param job_id: dbt cloud job identifier
+        :param run_id: dbt cloud run identifier
         :return: contents of the artifact
         """
         artifact_url = self._get_artifact_url(
-            artifact_name=artifact_name, job_id=job_id
+            artifact_name=artifact_name, run_id=run_id
         )
         request = Request(headers=self.req_headers, url=artifact_url)
 
