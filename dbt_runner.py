@@ -188,7 +188,7 @@ class DbtCloudRunner:
                 return
             time.sleep(poll_interval)
 
-    def get_artifact(
+    def get_run_artifact(
         self,
         artifact_name: str,
         run_id: int,
