@@ -36,14 +36,20 @@ class DbtCloudRunner:
         }
         self.base_url = f"{self.api_base}/api/v2/accounts/{self.account_id}"
 
-    def _get_artifact_url(self, *, artifact_name: str, run_id: int):
+    def _get_artifact_url(
+        self, *, artifact_name: str, run_id: int, step: str = None
+    ) -> str:
         """
         Helper method to get the artifact API url
 
         :param artifact_name: file name of the artifact
         :return: artifact API url
         """
-        return self._get_run_url(run_id=run_id) + f"artifacts/{artifact_name}"
+        return (
+            self._get_run_url(run_id=run_id)
+            + f"artifacts/{artifact_name}"
+            + (f"?step={step}" if step else "")
+        )
 
     def _get_job_url(self, *, job_id: int) -> str:
         """
@@ -53,6 +59,15 @@ class DbtCloudRunner:
         :return:
         """
         return f"{self.base_url}/jobs/{job_id}/run/"
+
+    def _get_job_artifact_url(self, *, job_id: int, artifact: str) -> str:
+        """
+        Helper method to get the job API url
+
+        :param job_id:
+        :return:
+        """
+        return f"{self.base_url}/jobs/{job_id}/artifacts/{artifact}"
 
     def _get_run_url(self, *, run_id: int) -> str:
         """
@@ -85,6 +100,7 @@ class DbtCloudRunner:
         git_sha: str = None,
         schema_override: str = None,
         steps_override: list[str] = None,
+        azure_pull_request_id: int = None,
     ) -> int:
         """
         Runs a dbt cloud job using the dbt cloud API
@@ -95,6 +111,7 @@ class DbtCloudRunner:
         :param git_sha: (optional) git sha to run the job from, either git_branch or git_sha can be provided
         :param schema_override: (optional) schema override to run the job with
         :param steps_override: (optional) steps override to run the job with, should be an array of dbt commands
+        :param azure_pull_request_id: (optional) identifier of the Azure DevOps pull request
         :return: dbt cloud run identifier
         """
         if git_branch and git_sha:
@@ -110,6 +127,8 @@ class DbtCloudRunner:
             req_payload["schema_override"] = schema_override.replace("-", "_")
         if steps_override:
             req_payload["steps_override"] = steps_override
+        if azure_pull_request_id:
+            req_payload["azure_pull_request_id"] = azure_pull_request_id
 
         data = json.dumps(req_payload).encode()
         request = Request(
@@ -131,9 +150,7 @@ class DbtCloudRunner:
         """
         req_run_url = f"{self._get_run_url(run_id=run_id)}/cancel/"
 
-        request = Request(
-            method="POST", headers=self.req_headers, url=req_run_url
-        )
+        request = Request(method="POST", headers=self.req_headers, url=req_run_url)
 
         with urlopen(request) as req:
             response = req.read().decode("utf-8")
@@ -162,6 +179,27 @@ class DbtCloudRunner:
         run_status_code = req_status_resp["data"]["status"]
         return self.run_status_map[run_status_code]
 
+    def get_latest_job_artifact(
+        self, *, job_id: int, artifact: str, artifact_path: str
+    ) -> None:
+        """
+        Retrieves the latest artifact for a specific job using the dbt cloud API
+
+        :param job_id: dbt cloud job identifier
+        :param artifact: file name of the artifact to retrieve
+        :param artifact_path: path of the artifact
+        :return: dbt cloud run artifact
+        """
+        req_job_url = self._get_job_artifact_url(job_id=job_id, artifact=artifact)
+        request = Request(headers=self.req_headers, url=req_job_url)
+
+        with urlopen(request) as req:
+            artifact_content = req.read().decode("utf-8")
+
+        # Save the artifact content to the specified path
+        with open(artifact_path, "w") as artifact_file:
+            artifact_file.write(artifact_content)
+
     def poll_run_status(
         self,
         *,
@@ -189,23 +227,25 @@ class DbtCloudRunner:
             time.sleep(poll_interval)
 
     def get_run_artifact(
-        self,
-        artifact_name: str,
-        run_id: int,
-    ) -> str:
+        self, *, run_id: int, artifact: str, artifact_path: str, step: str
+    ):
         """
         Retrieves the contents of a specific artifact from dbt cloud using the dbt cloud API
 
-        :param artifact_name: file name of the artifact to retrieve
         :param run_id: dbt cloud run identifier
+        :param artifact: file name of the artifact to retrieve
+        :param artifact_path: path of the artifact
+        :param step: dbt cloud run step of the artifact
         :return: contents of the artifact
         """
         artifact_url = self._get_artifact_url(
-            artifact_name=artifact_name, run_id=run_id
+            artifact_name=artifact, run_id=run_id, step=step
         )
         request = Request(headers=self.req_headers, url=artifact_url)
 
         with urlopen(request) as req:
-            artifact = req.read().decode("utf-8")
+            artifact_content = req.read().decode("utf-8")
 
-        return artifact
+        # Save the artifact content to the specified path
+        with open(artifact_path, "w") as artifact_file:
+            artifact_file.write(artifact_content)
