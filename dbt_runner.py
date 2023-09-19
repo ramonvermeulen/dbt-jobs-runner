@@ -36,14 +36,20 @@ class DbtCloudRunner:
         }
         self.base_url = f"{self.api_base}/api/v2/accounts/{self.account_id}"
 
-    def _get_artifact_url(self, *, artifact_name: str, run_id: int, step: str = None) -> str:
+    def _get_artifact_url(
+        self, *, artifact_name: str, run_id: int, step: str = None
+    ) -> str:
         """
         Helper method to get the artifact API url
 
         :param artifact_name: file name of the artifact
         :return: artifact API url
         """
-        return self._get_run_url(run_id=run_id) + f"artifacts/{artifact_name}" + (f"?step={step}" if step else "")
+        return (
+            self._get_run_url(run_id=run_id)
+            + f"artifacts/{artifact_name}"
+            + (f"?step={step}" if step else "")
+        )
 
     def _get_job_url(self, *, job_id: int) -> str:
         """
@@ -73,9 +79,9 @@ class DbtCloudRunner:
         return f"{self.base_url}/runs/{run_id}/"
 
     def get_status_link(
-            self,
-            *,
-            run_id: int,
+        self,
+        *,
+        run_id: int,
     ) -> str:
         """
         Returns the direct link to the dbt cloud run which can be opened in a browser
@@ -144,9 +150,7 @@ class DbtCloudRunner:
         """
         req_run_url = f"{self._get_run_url(run_id=run_id)}/cancel/"
 
-        request = Request(
-            method="POST", headers=self.req_headers, url=req_run_url
-        )
+        request = Request(method="POST", headers=self.req_headers, url=req_run_url)
 
         with urlopen(request) as req:
             response = req.read().decode("utf-8")
@@ -176,11 +180,7 @@ class DbtCloudRunner:
         return self.run_status_map[run_status_code]
 
     def get_latest_job_artifact(
-        self,
-        *,
-        job_id: int,
-        artifact: str,
-        artifact_path: str
+        self, *, job_id: int, artifact: str, artifact_path: str
     ) -> None:
         """
         Retrieves the latest artifact for a specific job using the dbt cloud API
@@ -201,10 +201,10 @@ class DbtCloudRunner:
             artifact_file.write(artifact_content)
 
     def poll_run_status(
-            self,
-            *,
-            run_id: int,
-            poll_interval: int = 10,
+        self,
+        *,
+        run_id: int,
+        poll_interval: int = 10,
     ):
         """
         Polls the DBT cloud API on an interval for the status of a specific dbt cloud job run
@@ -227,12 +227,7 @@ class DbtCloudRunner:
             time.sleep(poll_interval)
 
     def get_run_artifact(
-        self,
-        *,
-        run_id: int,
-        artifact: str,
-        artifact_path: str,
-        step: str
+        self, *, run_id: int, artifact: str, artifact_path: str, step: str
     ):
         """
         Retrieves the contents of a specific artifact from dbt cloud using the dbt cloud API
